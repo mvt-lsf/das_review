@@ -15,62 +15,87 @@ import matplotlib.animation as animation
 #import seaborn
 import sys
 
-fileHandle = win32file.CreateFile("\\\\.\\pipe\\Pipe2",
-                              win32file.GENERIC_READ,
-                              0, None,
-                              win32file.OPEN_EXISTING,
-                              0, None)
+numberOfZeros = 200
+pipeExists = True
 
-#tam=10000
-bin1=int(sys.argv[1])
-energia_size_laser=int(sys.argv[2])
-energia_size_edfa=int(sys.argv[3])
-bin_mon_laser_i = int(sys.argv[4])
-bin_mon_laser_f = int(sys.argv[5])
-bin_mon_edfa_i = int(sys.argv[6])
-bin_mon_edfa_f = int(sys.argv[7])
-cLASER = float(sys.argv[8])
-cEDFA = float(sys.argv[9])
-tam = bin1 + energia_size_laser + energia_size_edfa
+try:
+    fileHandle = win32file.CreateFile("\\\\.\\pipe\\Pipe2",
+                                  win32file.GENERIC_READ,
+                                  0, None,
+                                  win32file.OPEN_EXISTING,
+                                  0, None)
+    
+    #tam=10000
+    bin1=int(sys.argv[1])
+    energia_size_laser=int(sys.argv[2])
+    energia_size_edfa=int(sys.argv[3])
+    bin_mon_laser_i = int(sys.argv[4])
+    bin_mon_laser_f = int(sys.argv[5])
+    bin_mon_edfa_i = int(sys.argv[6])
+    bin_mon_edfa_f = int(sys.argv[7])
+    cLASER = float(sys.argv[8])
+    cEDFA = float(sys.argv[9])
+    tam = bin1 + energia_size_laser + energia_size_edfa
 
+except:
+    pipeExists = False
+    bin1=43
+    energia_size_laser=np.random.randint(40)
+    energia_size_edfa=np.random.randint(40)
+    bin_mon_laser_i = 20
+    bin_mon_laser_f = 40
+    bin_mon_edfa_i = 20
+    bin_mon_edfa_f = 40
+    cLASER = 2.01
+    cEDFA = 2.01
+    tam = bin1 + energia_size_laser + energia_size_edfa
 
-print "pipe adentro", tam
+print ("pipe adentro", tam)
 
 
 fig,([ax1,ax2],[ax3,ax4]) = plt.subplots(2,2)
+fig.canvas.set_window_title('Energia Laser - EDFA')
 
+
+#-------------------- Energia media laser - edfa
 x1=np.random.uniform(0.05,0.1,size=(500,1))
 ax1 = plt.subplot2grid((2, 8), (0, 0), colspan=4)
 ax11 = ax1.twinx()
 line1, = ax1.plot(x1)
 line11, = ax11.plot(x1)
 
+
+#-------------------- Relacion señal ruido laser - edfa
 x2=np.random.uniform(0.05,0.1,size=(500,1))
 ax2 = plt.subplot2grid((2, 8), (1, 0), colspan=4)
 ax22 = ax2.twinx()
 line2, = ax2.plot(x2)
 line22, = ax22.plot(x2)
 
+
+#-------------------- Potencia laser - edfa
 x3=np.random.uniform(0.05,0.1,size=(500,1))
 ax3 = plt.subplot2grid((2, 8), (0, 5), colspan=3)
 ax33 = ax3.twinx()
 line3, = ax3.plot(x3)
 line33, = ax33.plot(x3)
 
+
+#-------------------- Histograma laser - edfa
 x4=np.random.uniform(0.05,0.1,size=(500,1))
 ax4 = plt.subplot2grid((2, 8), (1, 5), colspan=3)
 ax44 = ax4.twiny()
 line4, = ax4.plot(x4)
 line44, = ax44.plot(x4)
 
-media_acc_edfa = np.zeros(200)
-snr_acc_edfa = np.zeros(200)
+media_acc_edfa = np.zeros(numberOfZeros)
+snr_acc_edfa = np.zeros(numberOfZeros)
 
-media_acc_laser = np.zeros(200)
-snr_acc_laser = np.zeros(200)
+media_acc_laser = np.zeros(numberOfZeros)
+snr_acc_laser = np.zeros(numberOfZeros)
 
-perfil_laser = np.zeros(400)
-perfil_edfa = np.zeros(400)
+perfil_laser = np.zeros(numberOfZeros*2)
+perfil_edfa = np.zeros(numberOfZeros*2)
 
 rango1 = []
 rango2 = []
@@ -93,8 +118,14 @@ def animate(i):
     ax44.cla()    
     
 #    ax.plot(x+i/10.0,'.')
-    rr,rd = win32file.ReadFile(fileHandle,tam*4)
-    super_vector = np.frombuffer(rd,dtype=np.float32)
+    if pipeExists == True:
+        try:
+            rr,rd = win32file.ReadFile(fileHandle,tam*4)
+            super_vector = np.frombuffer(rd,dtype=np.float32)
+        except:
+            sys.exit()
+    else:
+        super_vector = np.random.uniform(1, tam, size = tam)
     perfil = super_vector[0:(bin1-1)]  
     
     energia_laser = super_vector[bin1:(bin1+energia_size_laser-1)]    
@@ -118,19 +149,17 @@ def animate(i):
 #        media_acc = np.zeros(200)
 #        snr_acc = np.zeros(200)
     
-    media_acc_laser[i%200] = media_laser
-    snr_acc_laser[i%200] = media_laser/std_laser
+    media_acc_laser[i%numberOfZeros] = media_laser
+    snr_acc_laser[i%numberOfZeros] = media_laser/std_laser
     
-    media_acc_edfa[i%200] = media_edfa
-    snr_acc_edfa[i%200] = media_edfa/std_edfa    
+    media_acc_edfa[i%numberOfZeros] = media_edfa
+    snr_acc_edfa[i%numberOfZeros] = media_edfa/std_edfa    
     
     if (j == 0):
         rango1 = np.array([media_laser-20*std_laser, media_laser+10*std_laser])
-    yy1_laser,xx1_laser = np.histogram(energia_laser,200,rango1)
-    
-    if (j == 0):
         rango2 = np.array([media_edfa-10*std_edfa, media_edfa+20*std_edfa])
-    yy1_edfa,xx1_edfa = np.histogram(energia_edfa,200,rango2)
+    yy1_laser,xx1_laser = np.histogram(energia_laser,numberOfZeros,rango1)
+    yy1_edfa,xx1_edfa = np.histogram(energia_edfa,numberOfZeros,rango2)
     
     
     ax1.plot(media_acc_laser,color='b')
